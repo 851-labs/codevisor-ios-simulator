@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process"
+import { randomUUID } from "node:crypto"
 import { createServer } from "node:http"
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -16,11 +17,37 @@ const UDID_PATTERN = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{
 const DATA_DIR = process.env.CODEVISOR_PLUGIN_DATA_DIR || join(tmpdir(), "codevisor-ios-simulator-dev")
 const PREFERENCES_PATH = join(DATA_DIR, "pane-preferences.json")
 const DTUHID_BROKER_PATH = join(ROOT, "bin", "codevisor-dtuhid-broker")
+const AX_SETTINGS_PATH = join(ROOT, ".repos", "serve-sim", "packages", "serve-sim", "dist", "simax", "serve-sim-ax-settings")
 const STATIC_FILES = new Map([
   [`${PANE_BASE}/`, ["src/index.html", "text/html; charset=utf-8"]],
   [`${PANE_BASE}/app.js`, ["src/app.js", "text/javascript; charset=utf-8"]],
   [`${PANE_BASE}/styles.css`, ["src/styles.css", "text/css; charset=utf-8"]],
+  [`${PANE_BASE}/vendor/lucide.min.js`, ["node_modules/lucide/dist/umd/lucide.min.js", "text/javascript; charset=utf-8"]],
   ["/assets/icon.svg", ["assets/icon.svg", "image/svg+xml"]],
+])
+
+const APPEARANCES = new Set(["light", "dark"])
+const COLOR_FILTERS = new Set(["none", "grayscale", "red-green", "green-red", "blue-yellow"])
+const LOCATION_SCENARIOS = new Map([
+  ["none", null],
+  ["apple", "Apple"],
+  ["city-run", "City Run"],
+  ["city-bicycle-ride", "City Bicycle Ride"],
+  ["freeway-drive", "Freeway Drive"],
+])
+const CONTENT_SIZES = new Set([
+  "extra-small",
+  "small",
+  "medium",
+  "large",
+  "extra-large",
+  "extra-extra-large",
+  "extra-extra-extra-large",
+  "accessibility-medium",
+  "accessibility-large",
+  "accessibility-extra-large",
+  "accessibility-extra-extra-large",
+  "accessibility-extra-extra-extra-large",
 ])
 
 const simulatorMiddleware = simMiddleware({
@@ -34,6 +61,10 @@ let preferenceWrite = Promise.resolve()
 export function inputTransportForRuntime(runtime) {
   const match = /^iOS\s+(\d+)/.exec(runtime || "")
   return match && Number(match[1]) >= 27 ? "dtuhid" : "legacy-hid"
+}
+
+export function isLiquidGlassOpacity(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1
 }
 
 const dtuhidTransport = new RawDTUHIDTransport({ executable: DTUHID_BROKER_PATH })
@@ -103,22 +134,37 @@ async function loadPreferences() {
   try {
     preferenceCache = JSON.parse(await readFile(PREFERENCES_PATH, "utf8"))
   } catch {
-    preferenceCache = { selectedDevices: {} }
+    preferenceCache = { selectedDevices: {}, deviceControls: {} }
   }
   preferenceCache.selectedDevices ||= {}
+  preferenceCache.deviceControls ||= {}
   return preferenceCache
+}
+
+async function persistPreferences() {
+  preferenceWrite = preferenceWrite.then(async () => {
+    await mkdir(DATA_DIR, { recursive: true })
+    const temporaryPath = `${PREFERENCES_PATH}.${process.pid}.tmp`
+    await writeFile(temporaryPath, `${JSON.stringify(preferenceCache, null, 2)}\n`)
+    await rename(temporaryPath, PREFERENCES_PATH)
+  })
+  await preferenceWrite
 }
 
 async function saveSelection(key, udid) {
   const preferences = await loadPreferences()
   preferences.selectedDevices[key] = udid
-  preferenceWrite = preferenceWrite.then(async () => {
-    await mkdir(DATA_DIR, { recursive: true })
-    const temporaryPath = `${PREFERENCES_PATH}.${process.pid}.tmp`
-    await writeFile(temporaryPath, `${JSON.stringify(preferences, null, 2)}\n`)
-    await rename(temporaryPath, PREFERENCES_PATH)
-  })
-  await preferenceWrite
+  await persistPreferences()
+}
+
+async function saveDeviceControls(udid, settings) {
+  const preferences = await loadPreferences()
+  preferences.deviceControls[udid] = {
+    ...(preferences.deviceControls[udid] || {}),
+    ...settings,
+  }
+  await persistPreferences()
+  return preferences.deviceControls[udid]
 }
 
 async function runSimctl(args, timeout = 15_000) {
@@ -131,6 +177,19 @@ async function runSimctl(args, timeout = 15_000) {
   } catch (error) {
     const detail = String(error?.stderr || error?.message || error).trim()
     throw new Error(detail || `simctl ${args[0]} failed`)
+  }
+}
+
+async function runDevicectl(args, timeout = 20_000) {
+  try {
+    return await execFileAsync("xcrun", ["devicectl", ...args], {
+      encoding: "utf8",
+      maxBuffer: 10 * 1024 * 1024,
+      timeout,
+    })
+  } catch (error) {
+    const detail = String(error?.stderr || error?.message || error).trim()
+    throw new Error(detail || `devicectl ${args[0]} failed`)
   }
 }
 
@@ -154,6 +213,75 @@ async function captureScreenshot(udid) {
 async function listDevices() {
   const { stdout } = await runSimctl(["list", "devices", "available", "-j"])
   return parseDeviceList(JSON.parse(stdout))
+}
+
+async function readSimulatorSetting(udid, setting) {
+  try {
+    const { stdout } = await runSimctl(["ui", udid, setting])
+    return stdout.trim()
+  } catch {
+    return null
+  }
+}
+
+async function readLiquidGlassOpacity(udid) {
+  const outputPath = join(tmpdir(), `codevisor-device-appearance-${process.pid}-${randomUUID()}.json`)
+  try {
+    await runDevicectl([
+      "device",
+      "info",
+      "appearance",
+      "--quiet",
+      "--json-output",
+      outputPath,
+      "--device",
+      udid,
+    ])
+    const payload = JSON.parse(await readFile(outputPath, "utf8"))
+    const value = payload?.result?.liquidGlassOpacity
+    return isLiquidGlassOpacity(value) ? value : null
+  } catch {
+    return null
+  } finally {
+    await unlink(outputPath).catch(() => {})
+  }
+}
+
+async function simulatorSettings(udid) {
+  const [appearance, increaseContrast, contentSize, liquidGlassOpacity, accessibility] = await Promise.all([
+    readSimulatorSetting(udid, "appearance"),
+    readSimulatorSetting(udid, "increase_contrast"),
+    readSimulatorSetting(udid, "content_size"),
+    readLiquidGlassOpacity(udid),
+    runSimctl(["spawn", udid, AX_SETTINGS_PATH, "status"])
+      .then(({ stdout }) => JSON.parse(stdout))
+      .catch(() => ({})),
+  ])
+  return {
+    appearance,
+    liquidGlassOpacity,
+    colorFilter: accessibility["color-filter"] || null,
+    increaseContrast: increaseContrast === null ? null : increaseContrast === "enabled",
+    contentSize,
+    reduceMotion: accessibility["reduce-motion"] ? accessibility["reduce-motion"] === "on" : null,
+    showBorders: accessibility["show-borders"] ? accessibility["show-borders"] === "on" : null,
+    reduceTransparency: accessibility["reduce-transparency"] ? accessibility["reduce-transparency"] === "on" : null,
+    voiceOver: accessibility.voiceover ? accessibility.voiceover === "on" : null,
+  }
+}
+
+async function settingsState(request, udid) {
+  const preferences = await loadPreferences()
+  const controls = preferences.deviceControls[udid] || {}
+  return {
+    simulator: await simulatorSettings(udid),
+    location: controls.location || "none",
+    audio: {
+      sound: Number.isInteger(controls.sound) ? controls.sound : 8,
+      output: "system",
+      input: "system",
+    },
+  }
 }
 
 async function selectedState(request) {
@@ -253,6 +381,70 @@ async function handleRequest(request, response) {
 
   if (url.pathname === `${PANE_BASE}/api/state` && request.method === "GET") {
     sendJson(response, 200, await selectedState(request))
+    return
+  }
+
+  if (url.pathname === `${PANE_BASE}/api/settings` && request.method === "GET") {
+    const udid = requireUdid(url.searchParams.get("udid"))
+    sendJson(response, 200, await settingsState(request, udid))
+    return
+  }
+
+  if (url.pathname === `${PANE_BASE}/api/settings` && request.method === "POST") {
+    const body = await readJson(request)
+    const udid = requireUdid(body.udid)
+    if (body.appearance !== undefined) {
+      if (!APPEARANCES.has(body.appearance)) throw new Error("Invalid appearance")
+      await runSimctl(["ui", udid, "appearance", body.appearance])
+    }
+    if (body.liquidGlassOpacity !== undefined) {
+      if (!isLiquidGlassOpacity(body.liquidGlassOpacity)) {
+        throw new Error("Invalid Liquid Glass opacity")
+      }
+      await runDevicectl([
+        "device",
+        "settings",
+        "appearance",
+        "--device",
+        udid,
+        "--liquid-glass-opacity",
+        String(body.liquidGlassOpacity),
+      ])
+    }
+    if (body.colorFilter !== undefined) {
+      if (!COLOR_FILTERS.has(body.colorFilter)) throw new Error("Invalid color filter")
+      await runSimctl(["spawn", udid, AX_SETTINGS_PATH, "set", "color-filter", body.colorFilter])
+    }
+    if (body.increaseContrast !== undefined) {
+      if (typeof body.increaseContrast !== "boolean") throw new Error("Invalid contrast setting")
+      await runSimctl(["ui", udid, "increase_contrast", body.increaseContrast ? "enabled" : "disabled"])
+    }
+    if (body.contentSize !== undefined) {
+      if (!CONTENT_SIZES.has(body.contentSize)) throw new Error("Invalid text size")
+      await runSimctl(["ui", udid, "content_size", body.contentSize])
+    }
+    const axToggles = [
+      ["reduceMotion", "reduce-motion"],
+      ["showBorders", "show-borders"],
+      ["reduceTransparency", "reduce-transparency"],
+      ["voiceOver", "voiceover"],
+    ]
+    for (const [field, option] of axToggles) {
+      if (body[field] === undefined) continue
+      if (typeof body[field] !== "boolean") throw new Error(`Invalid ${field} setting`)
+      await runSimctl(["spawn", udid, AX_SETTINGS_PATH, "set", option, body[field] ? "on" : "off"])
+    }
+    if (body.location !== undefined) {
+      if (!LOCATION_SCENARIOS.has(body.location)) throw new Error("Invalid location scenario")
+      const scenario = LOCATION_SCENARIOS.get(body.location)
+      await runSimctl(scenario ? ["location", udid, "run", scenario] : ["location", udid, "clear"])
+      await saveDeviceControls(udid, { location: body.location })
+    }
+    if (body.sound !== undefined) {
+      if (!Number.isInteger(body.sound) || body.sound < 0 || body.sound > 16) throw new Error("Invalid sound level")
+      await saveDeviceControls(udid, { sound: body.sound })
+    }
+    sendJson(response, 200, await settingsState(request, udid))
     return
   }
 

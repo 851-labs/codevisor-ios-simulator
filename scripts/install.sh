@@ -4,6 +4,11 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
+if ! command -v bun >/dev/null 2>&1; then
+  echo "Bun is required to install the iOS Simulator plugin." >&2
+  exit 1
+fi
+
 bun install --frozen-lockfile
 
 git submodule update --init .repos/serve-sim

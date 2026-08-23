@@ -7,12 +7,12 @@ The plugin uses `serve-sim` for SimulatorKit framebuffer capture and legacy HID 
 ## Development
 
 ```sh
-git submodule update --init .repos/serve-sim .repos/idb
+git submodule update --init .repos/serve-sim
 bash scripts/install.sh
-npm test
+bun test
 codevisor plugin link "$PWD"
 ```
 
 Open **iOS Simulator** from Codevisor's New Tab page. Selecting a shut-down device boots it automatically. Click inside the simulated screen to send pointer and keyboard input.
 
-Requirements: macOS on Apple Silicon, Xcode Command Line Tools, Node.js 20 or newer, Homebrew, and an installed iOS Simulator runtime. The install script installs AXe's simulator frameworks when needed and builds the native DTUHID broker locally. Cursor-free input does not require macOS Accessibility permission.
+Requirements: macOS on Apple Silicon, Xcode Command Line Tools, Node.js 20 or newer, Bun, Homebrew, and an installed iOS Simulator runtime. The install script installs AXe's simulator frameworks when needed and builds the native DTUHID broker locally. Cursor-free input does not require macOS Accessibility permission.

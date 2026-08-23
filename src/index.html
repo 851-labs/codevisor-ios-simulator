@@ -8,70 +8,175 @@
     <link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="./styles.css">
   </head>
-  <body>
+  <body data-glass="on">
     <main class="app-shell">
-      <header class="toolbar">
-        <div class="device-picker">
-          <span class="device-mark" aria-hidden="true"></span>
-          <label class="sr-only" for="device-select">Simulator</label>
-          <select id="device-select" aria-label="Simulator"></select>
-          <span id="runtime-label" class="runtime-label"></span>
-        </div>
+      <header class="command-bar" aria-label="Simulator controls">
+        <button id="device-menu-button" class="device-trigger" type="button" aria-expanded="false" aria-controls="device-panel">
+          <span class="device-identity">
+            <strong id="device-name">Finding simulator</strong>
+            <span id="runtime-label"></span>
+          </span>
+          <i class="device-chevron" data-lucide="chevron-down"></i>
+        </button>
 
-        <div class="connection" aria-live="polite">
-          <span id="connection-dot" class="connection-dot"></span>
-          <span id="connection-label">Finding simulator</span>
-        </div>
-
-        <div class="toolbar-actions">
-          <button id="refresh-button" class="icon-button" type="button" title="Refresh simulators" aria-label="Refresh simulators">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.7 6.5A6.3 6.3 0 1 0 16 13m-.3-6.5V2.8m0 3.7H12"/></svg>
-          </button>
-          <span class="toolbar-separator"></span>
-          <button id="rotate-left-button" class="icon-button" type="button" title="Rotate left" aria-label="Rotate left">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.1 4.4 3.8 6.8l3.3 2.4M4 6.9a6.3 6.3 0 1 1 .8 5.5"/></svg>
-          </button>
-          <button id="home-button" class="icon-button" type="button" title="Home" aria-label="Home">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m3.5 9 6.5-5.5L16.5 9v7.2h-5v-4h-3v4h-5Z"/></svg>
-          </button>
-          <button id="lock-button" class="icon-button" type="button" title="Lock" aria-label="Lock">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4.5" y="8" width="11" height="8.5" rx="2"/><path d="M7 8V6.2a3 3 0 0 1 6 0V8"/></svg>
-          </button>
-          <button id="screenshot-button" class="icon-button" type="button" title="Save screenshot" aria-label="Save screenshot">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.2 5.5 7.4 3.8h5.2l1.2 1.7h2A1.7 1.7 0 0 1 17.5 7v7.3a1.7 1.7 0 0 1-1.7 1.7H4.2a1.7 1.7 0 0 1-1.7-1.7V7a1.7 1.7 0 0 1 1.7-1.5Z"/><circle cx="10" cy="10.7" r="3.1"/></svg>
-          </button>
-          <button id="shutdown-button" class="icon-button" type="button" title="Shut down simulator" aria-label="Shut down simulator">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v7M5.2 5.3a6.2 6.2 0 1 0 9.6 0"/></svg>
-          </button>
+        <div class="command-actions">
+          <div class="control-group">
+            <button id="keyboard-button" class="icon-button" type="button" title="Send keyboard input" aria-label="Send keyboard input">
+              <i data-lucide="keyboard"></i>
+            </button>
+            <button id="rotate-left-button" class="icon-button" type="button" title="Rotate left" aria-label="Rotate left">
+              <i data-lucide="rotate-ccw"></i>
+            </button>
+          </div>
+          <div class="control-group">
+            <button id="settings-button" class="icon-button" type="button" title="Display settings" aria-label="Display settings" aria-expanded="false" aria-controls="settings-panel">
+              <i data-lucide="settings-2"></i>
+            </button>
+            <button id="more-button" class="icon-button" type="button" title="More actions" aria-label="More actions" aria-expanded="false" aria-controls="more-menu">
+              <i data-lucide="ellipsis"></i>
+            </button>
+          </div>
         </div>
       </header>
+
+      <aside id="device-panel" class="side-panel device-panel" aria-label="Simulators" hidden>
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Devices</span>
+            <h2>Simulators</h2>
+          </div>
+          <button class="icon-button panel-close" data-close-panel type="button" title="Close devices" aria-label="Close devices"><i data-lucide="x"></i></button>
+        </div>
+        <label class="search-field">
+          <i data-lucide="search"></i>
+          <span class="sr-only">Search simulators</span>
+          <input id="device-search" type="search" placeholder="Search" autocomplete="off">
+        </label>
+        <div id="device-list" class="device-list"></div>
+      </aside>
+
+      <aside id="settings-panel" class="side-panel settings-panel" aria-label="Display settings" hidden>
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Selected device</span>
+            <h2>Display</h2>
+          </div>
+          <button class="icon-button panel-close" data-close-panel type="button" title="Close settings" aria-label="Close settings"><i data-lucide="x"></i></button>
+        </div>
+
+        <div id="settings-loading" class="settings-loading">Loading settings…</div>
+        <div id="settings-content" class="settings-content" hidden>
+          <section class="settings-card" aria-label="Simulator display and accessibility">
+            <label class="setting-row">
+              <span class="setting-label"><i data-lucide="sun-moon"></i><span><strong>Appearance</strong></span></span>
+              <select id="appearance-select" aria-label="Appearance">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+            <label class="setting-row setting-range">
+              <span class="setting-label"><i data-lucide="layers"></i><span><strong>Liquid Glass</strong></span></span>
+              <input id="liquid-glass-slider" type="range" min="0" max="1" step="any" aria-label="Liquid Glass tint amount">
+            </label>
+            <label class="setting-row">
+              <span class="setting-label"><i data-lucide="palette"></i><span><strong>Color Filter</strong></span></span>
+              <select id="color-filter-select" aria-label="Color Filter">
+                <option value="none">None</option>
+                <option value="grayscale">Grayscale</option>
+                <option value="red-green">Red/Green</option>
+                <option value="green-red">Green/Red</option>
+                <option value="blue-yellow">Blue/Yellow</option>
+              </select>
+            </label>
+            <label class="setting-row setting-range">
+              <span class="setting-label"><i data-lucide="type"></i><span><strong>Text Size</strong><small id="text-size-label">Large</small></span></span>
+              <input id="text-size-slider" type="range" min="0" max="11" step="1" aria-label="Text size">
+            </label>
+            <label class="setting-row">
+              <span class="setting-label"><i data-lucide="orbit"></i><span><strong>Reduce Motion</strong></span></span>
+              <span class="switch"><input id="reduce-motion-toggle" type="checkbox"><span aria-hidden="true"></span></span>
+            </label>
+            <label class="setting-row">
+              <span class="setting-label"><i data-lucide="contrast"></i><span><strong>Increase Contrast</strong></span></span>
+              <span class="switch"><input id="contrast-toggle" type="checkbox"><span aria-hidden="true"></span></span>
+            </label>
+            <label class="setting-row">
+              <span class="setting-label"><i data-lucide="square-dashed"></i><span><strong>Show Borders</strong></span></span>
+              <span class="switch"><input id="show-borders-toggle" type="checkbox"><span aria-hidden="true"></span></span>
+            </label>
+            <label class="setting-row">
+              <span class="setting-label"><i data-lucide="blend"></i><span><strong>Reduce Transparency</strong></span></span>
+              <span class="switch"><input id="reduce-transparency-toggle" type="checkbox"><span aria-hidden="true"></span></span>
+            </label>
+            <label class="setting-row">
+              <span class="setting-label"><i data-lucide="accessibility"></i><span><strong>VoiceOver</strong></span></span>
+              <span class="switch"><input id="voiceover-toggle" type="checkbox"><span aria-hidden="true"></span></span>
+            </label>
+          </section>
+
+          <section class="settings-card" aria-label="Location">
+            <label class="setting-row">
+              <span class="setting-label"><i data-lucide="navigation"></i><span><strong>Location</strong></span></span>
+              <select id="location-select" aria-label="Location">
+                <option value="none">None</option>
+                <option value="apple">Apple</option>
+                <option value="city-run">City Run</option>
+                <option value="city-bicycle-ride">Bicycle Ride</option>
+                <option value="freeway-drive">Freeway Drive</option>
+              </select>
+            </label>
+          </section>
+
+          <section class="settings-card" aria-label="Audio">
+            <label class="setting-row setting-range">
+              <span class="setting-label"><i data-lucide="volume-2"></i><span><strong>Sound</strong><small id="sound-label">50%</small></span></span>
+              <input id="sound-slider" type="range" min="0" max="16" step="1" aria-label="Sound">
+            </label>
+            <label class="setting-row">
+              <span class="setting-label"><i data-lucide="headphones"></i><span><strong>Output</strong></span></span>
+              <select id="output-select" aria-label="Output" title="Audio output follows the Mac running the simulator">
+                <option value="system">System</option>
+              </select>
+            </label>
+            <label class="setting-row">
+              <span class="setting-label"><i data-lucide="mic"></i><span><strong>Input</strong></span></span>
+              <select id="input-select" aria-label="Input" title="Audio input follows the Mac running the simulator">
+                <option value="system">System</option>
+              </select>
+            </label>
+          </section>
+        </div>
+      </aside>
 
       <section class="stage" aria-label="Simulator preview">
         <div id="device-shell" class="device-shell is-idle">
           <div id="screen" class="screen" tabindex="0" role="application" aria-label="Interactive iOS Simulator screen">
             <canvas id="stream-canvas"></canvas>
             <div id="empty-state" class="empty-state">
-              <div class="empty-glyph" aria-hidden="true">
-                <span></span>
-              </div>
+              <div class="empty-glyph" aria-hidden="true"><i data-lucide="smartphone"></i></div>
               <p id="empty-title" class="empty-title">Connecting to Simulator</p>
               <p id="empty-detail" class="empty-detail">The first frame can take a few seconds.</p>
               <button id="start-button" class="primary-button" type="button" hidden>Start simulator</button>
             </div>
-            <div id="focus-ring" class="focus-ring" aria-hidden="true"></div>
+            <div class="focus-ring" aria-hidden="true"></div>
           </div>
         </div>
 
-        <div class="stage-footer">
-          <span id="screen-size">—</span>
-          <span class="footer-dot">·</span>
-          <span id="frame-rate">Waiting for frames</span>
-          <span class="footer-hint">Click the screen to send keyboard input</span>
+        <div class="device-dock" aria-label="Device actions">
+          <button id="home-button" class="dock-button" type="button" title="Home" aria-label="Home"><i data-lucide="house"></i></button>
+          <button id="screenshot-button" class="dock-button" type="button" title="Save screenshot" aria-label="Save screenshot"><i data-lucide="camera"></i></button>
+          <button id="lock-button" class="dock-button" type="button" title="Lock" aria-label="Lock"><i data-lucide="lock"></i></button>
         </div>
       </section>
 
+      <div id="more-menu" class="popover menu-popover" role="menu" hidden>
+        <button id="refresh-button" type="button" role="menuitem"><i data-lucide="refresh-cw"></i><span>Reconnect</span></button>
+        <button id="shutdown-button" class="danger-action" type="button" role="menuitem"><i data-lucide="power"></i><span>Shut Down</span></button>
+      </div>
+
       <div id="toast" class="toast" role="status" aria-live="polite"></div>
     </main>
+    <script src="./vendor/lucide.min.js"></script>
     <script type="module" src="./app.js"></script>
   </body>
 </html>

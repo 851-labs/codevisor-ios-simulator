@@ -1,24 +1,46 @@
 const elements = {
+  appearanceSelect: document.querySelector("#appearance-select"),
   canvas: document.querySelector("#stream-canvas"),
-  connection: document.querySelector(".connection"),
-  connectionLabel: document.querySelector("#connection-label"),
-  deviceSelect: document.querySelector("#device-select"),
+  colorFilterSelect: document.querySelector("#color-filter-select"),
+  contrastToggle: document.querySelector("#contrast-toggle"),
+  deviceList: document.querySelector("#device-list"),
+  deviceMenuButton: document.querySelector("#device-menu-button"),
+  deviceName: document.querySelector("#device-name"),
+  devicePanel: document.querySelector("#device-panel"),
+  deviceSearch: document.querySelector("#device-search"),
   deviceShell: document.querySelector("#device-shell"),
   emptyDetail: document.querySelector("#empty-detail"),
   emptyTitle: document.querySelector("#empty-title"),
-  frameRate: document.querySelector("#frame-rate"),
   homeButton: document.querySelector("#home-button"),
+  keyboardButton: document.querySelector("#keyboard-button"),
+  liquidGlassSlider: document.querySelector("#liquid-glass-slider"),
+  locationSelect: document.querySelector("#location-select"),
   lockButton: document.querySelector("#lock-button"),
+  moreButton: document.querySelector("#more-button"),
+  moreMenu: document.querySelector("#more-menu"),
   refreshButton: document.querySelector("#refresh-button"),
+  reduceMotionToggle: document.querySelector("#reduce-motion-toggle"),
+  reduceTransparencyToggle: document.querySelector("#reduce-transparency-toggle"),
   rotateLeftButton: document.querySelector("#rotate-left-button"),
   runtimeLabel: document.querySelector("#runtime-label"),
   screen: document.querySelector("#screen"),
-  screenSize: document.querySelector("#screen-size"),
   screenshotButton: document.querySelector("#screenshot-button"),
+  settingsButton: document.querySelector("#settings-button"),
+  settingsContent: document.querySelector("#settings-content"),
+  settingsLoading: document.querySelector("#settings-loading"),
+  settingsPanel: document.querySelector("#settings-panel"),
+  showBordersToggle: document.querySelector("#show-borders-toggle"),
   shutdownButton: document.querySelector("#shutdown-button"),
+  soundLabel: document.querySelector("#sound-label"),
+  soundSlider: document.querySelector("#sound-slider"),
   startButton: document.querySelector("#start-button"),
+  textSizeLabel: document.querySelector("#text-size-label"),
+  textSizeSlider: document.querySelector("#text-size-slider"),
   toast: document.querySelector("#toast"),
+  voiceOverToggle: document.querySelector("#voiceover-toggle"),
 }
+
+window.lucide?.createIcons({ attrs: { "aria-hidden": "true" } })
 
 const HID_USAGE_BY_CODE = {
   KeyA: 0x04, KeyB: 0x05, KeyC: 0x06, KeyD: 0x07, KeyE: 0x08, KeyF: 0x09,
@@ -45,6 +67,21 @@ const ROTATE_LEFT = {
   landscape_right: "portrait",
 }
 
+const CONTENT_SIZES = [
+  ["extra-small", "Extra Small"],
+  ["small", "Small"],
+  ["medium", "Medium"],
+  ["large", "Large"],
+  ["extra-large", "Extra Large"],
+  ["extra-extra-large", "XX Large"],
+  ["extra-extra-extra-large", "XXX Large"],
+  ["accessibility-medium", "Accessibility M"],
+  ["accessibility-large", "Accessibility L"],
+  ["accessibility-extra-large", "Accessibility XL"],
+  ["accessibility-extra-extra-large", "Accessibility XXL"],
+  ["accessibility-extra-extra-extra-large", "Accessibility XXXL"],
+]
+
 let currentState = { devices: [], selected: null }
 let streamAbort
 let streamGeneration = 0
@@ -56,9 +93,12 @@ let queuedTouchMessages = []
 let frameBlob
 let renderingFrame = false
 let frameCounter = 0
-let frameCounterStartedAt = performance.now()
 let currentOrientation = "portrait"
 let toastTimer
+let openSurface = null
+let settingsGeneration = 0
+let currentSoundLevel = 8
+const liquidGlassQueue = { running: false, next: null }
 let activePointer = null
 let pendingPointerMove = null
 let pointerMoveFrame = null
@@ -92,9 +132,8 @@ async function api(path, options = {}) {
   return response.json()
 }
 
-function setConnection(state, label) {
-  elements.connection.dataset.state = state
-  elements.connectionLabel.textContent = label
+function setConnection(state) {
+  elements.deviceMenuButton.dataset.connection = state
 }
 
 function setEmpty(title, detail, action = null) {
@@ -112,9 +151,34 @@ function showToast(message) {
   toastTimer = setTimeout(() => elements.toast.classList.remove("is-visible"), 2600)
 }
 
+const SURFACES = {
+  devices: [elements.devicePanel, elements.deviceMenuButton],
+  settings: [elements.settingsPanel, elements.settingsButton],
+  more: [elements.moreMenu, elements.moreButton],
+}
+
+function setOpenSurface(name) {
+  for (const [surfaceName, [surface, button]] of Object.entries(SURFACES)) {
+    const isOpen = surfaceName === name
+    surface.hidden = !isOpen
+    button?.setAttribute("aria-expanded", String(isOpen))
+  }
+  openSurface = name
+  if (name === "devices") {
+    populateDevices(currentState)
+    requestAnimationFrame(() => elements.deviceSearch.focus())
+  }
+  if (name === "settings") void loadSettings()
+}
+
+function toggleSurface(name) {
+  setOpenSurface(openSurface === name ? null : name)
+}
+
 function setControlsEnabled(enabled) {
   for (const button of [
     elements.homeButton,
+    elements.keyboardButton,
     elements.lockButton,
     elements.rotateLeftButton,
     elements.screenshotButton,
@@ -124,35 +188,55 @@ function setControlsEnabled(enabled) {
 
 function populateDevices(state) {
   const selectedId = state.selected?.udid || ""
+  const query = elements.deviceSearch.value.trim().toLocaleLowerCase()
   const groups = new Map()
-  for (const device of state.devices) {
+  for (const device of state.devices.filter((candidate) => {
+    if (!query) return true
+    return `${candidate.name} ${candidate.runtime} ${candidate.deviceType}`.toLocaleLowerCase().includes(query)
+  })) {
     const group = groups.get(device.runtime) || []
     group.push(device)
     groups.set(device.runtime, group)
   }
-  elements.deviceSelect.replaceChildren()
+  elements.deviceList.replaceChildren()
   if (state.devices.length === 0) {
-    const option = document.createElement("option")
-    option.textContent = "No simulators available"
-    option.disabled = true
-    option.selected = true
-    elements.deviceSelect.append(option)
-    elements.deviceSelect.disabled = true
+    const empty = document.createElement("p")
+    empty.className = "device-list-empty"
+    empty.textContent = "No simulators available"
+    elements.deviceList.append(empty)
+  } else if (groups.size === 0) {
+    const empty = document.createElement("p")
+    empty.className = "device-list-empty"
+    empty.textContent = "No matching simulators"
+    elements.deviceList.append(empty)
   } else {
-    elements.deviceSelect.disabled = false
     for (const [runtime, devices] of groups) {
-      const optgroup = document.createElement("optgroup")
-      optgroup.label = runtime
+      const group = document.createElement("section")
+      group.className = "device-group"
+      const heading = document.createElement("h3")
+      heading.className = "device-group-title"
+      heading.textContent = runtime
+      group.append(heading)
       for (const device of devices) {
-        const option = document.createElement("option")
-        option.value = device.udid
-        option.textContent = `${device.state === "Booted" ? "● " : ""}${device.name}`
-        option.selected = device.udid === selectedId
-        optgroup.append(option)
+        const row = document.createElement("button")
+        row.type = "button"
+        row.className = `device-row${device.udid === selectedId ? " is-selected" : ""}${device.state === "Booted" ? " is-booted" : ""}`
+        row.dataset.udid = device.udid
+        row.innerHTML = `
+          <span class="device-row-icon"><i data-lucide="smartphone"></i></span>
+          <span class="device-row-copy"><strong></strong><span></span></span>
+          <span class="device-row-state"></span>
+        `
+        row.querySelector("strong").textContent = device.name
+        row.querySelector(".device-row-copy span").textContent = "Simulator"
+        row.querySelector(".device-row-state").textContent = device.state === "Booted" ? "Live" : "Off"
+        group.append(row)
       }
-      elements.deviceSelect.append(optgroup)
+      elements.deviceList.append(group)
     }
   }
+  window.lucide?.createIcons({ attrs: { "aria-hidden": "true" } })
+  elements.deviceName.textContent = state.selected?.name || "No Simulator"
   elements.runtimeLabel.textContent = state.selected?.runtime || ""
 }
 
@@ -370,7 +454,6 @@ function updateScreenConfig(width, height, orientation = "portrait") {
   if (!(width > 0 && height > 0)) return
   currentOrientation = orientation || currentOrientation
   elements.deviceShell.style.setProperty("--screen-ratio", `${width} / ${height}`)
-  elements.screenSize.textContent = `${width} × ${height}`
 }
 
 function stopDeviceSession() {
@@ -386,7 +469,6 @@ function stopDeviceSession() {
   clearActivePointer()
   frameBlob = null
   frameCounter = 0
-  frameCounterStartedAt = performance.now()
   elements.canvas.getContext("2d").clearRect(0, 0, elements.canvas.width, elements.canvas.height)
 }
 
@@ -411,6 +493,7 @@ function renderState(nextState, { reconnect = false } = {}) {
     setControlsEnabled(false)
     setEmpty("No iOS Simulators", "Install an iOS runtime in Xcode to begin.")
     setConnection("error", "No simulator")
+    if (openSurface === "settings") void loadSettings()
     return
   }
 
@@ -420,12 +503,14 @@ function renderState(nextState, { reconnect = false } = {}) {
     setControlsEnabled(false)
     setEmpty(`${selected.name} is shut down`, `Start ${selected.runtime} to view it here.`, "Start simulator")
     setConnection("waiting", "Shut down")
+    if (openSurface === "settings" && previous?.udid !== selected.udid) void loadSettings()
     return
   }
 
   if (reconnect || previous?.udid !== selected.udid || previous?.state !== "Booted") {
     startDeviceSession(selected)
   }
+  if (openSurface === "settings" && previous?.udid !== selected.udid) void loadSettings()
 }
 
 async function refreshState(options) {
@@ -448,6 +533,124 @@ async function selectDevice(udid) {
     showToast(error.message)
     await refreshState()
   }
+}
+
+function setSettingsPending(pending) {
+  elements.settingsLoading.hidden = !pending
+  elements.settingsContent.hidden = pending
+}
+
+function applySettingsState(settings) {
+  const simulator = settings.simulator || {}
+  const appearanceSupported = simulator.appearance === "light" || simulator.appearance === "dark"
+  elements.appearanceSelect.disabled = !appearanceSupported
+  if (appearanceSupported) elements.appearanceSelect.value = simulator.appearance
+
+  const liquidGlassSupported = typeof simulator.liquidGlassOpacity === "number"
+  elements.liquidGlassSlider.disabled = !liquidGlassSupported
+  if (liquidGlassSupported) {
+    const percentage = Math.round(simulator.liquidGlassOpacity * 100)
+    elements.liquidGlassSlider.value = String(simulator.liquidGlassOpacity)
+    elements.liquidGlassSlider.setAttribute("aria-valuetext", `${percentage}% tint`)
+  }
+
+  const colorFilterSupported = ["none", "grayscale", "red-green", "green-red", "blue-yellow"].includes(simulator.colorFilter)
+  elements.colorFilterSelect.disabled = !colorFilterSupported
+  if (colorFilterSupported) elements.colorFilterSelect.value = simulator.colorFilter
+
+  const contentSizeIndex = CONTENT_SIZES.findIndex(([value]) => value === simulator.contentSize)
+  elements.textSizeSlider.disabled = contentSizeIndex < 0
+  if (contentSizeIndex >= 0) {
+    elements.textSizeSlider.value = String(contentSizeIndex)
+    elements.textSizeLabel.textContent = CONTENT_SIZES[contentSizeIndex][1]
+  } else {
+    elements.textSizeLabel.textContent = "Unavailable"
+  }
+
+  for (const [control, value] of [
+    [elements.reduceMotionToggle, simulator.reduceMotion],
+    [elements.contrastToggle, simulator.increaseContrast],
+    [elements.showBordersToggle, simulator.showBorders],
+    [elements.reduceTransparencyToggle, simulator.reduceTransparency],
+    [elements.voiceOverToggle, simulator.voiceOver],
+  ]) {
+    control.disabled = value === null
+    if (value !== null) control.checked = value
+  }
+
+  elements.locationSelect.value = settings.location || "none"
+  currentSoundLevel = Number.isInteger(settings.audio?.sound) ? settings.audio.sound : 8
+  elements.soundSlider.value = String(currentSoundLevel)
+  elements.soundLabel.textContent = `${Math.round(currentSoundLevel / 16 * 100)}%`
+  setSettingsPending(false)
+}
+
+async function loadSettings() {
+  const device = currentState.selected
+  const generation = ++settingsGeneration
+  if (!device) {
+    setSettingsPending(true)
+    elements.settingsLoading.textContent = "Select a simulator to change its display."
+    return
+  }
+  setSettingsPending(true)
+  elements.settingsLoading.textContent = "Loading settings…"
+  try {
+    const settings = await api(`api/settings?udid=${encodeURIComponent(device.udid)}`)
+    if (generation === settingsGeneration) applySettingsState(settings)
+  } catch (error) {
+    if (generation !== settingsGeneration) return
+    elements.settingsLoading.textContent = "Settings are unavailable for this simulator."
+    showToast(error.message)
+  }
+}
+
+async function updateSettings(change, { applyResponse = true } = {}) {
+  const device = currentState.selected
+  if (!device) return
+  try {
+    const settings = await api("api/settings", {
+      method: "POST",
+      body: { udid: device.udid, ...change },
+    })
+    if (applyResponse) applySettingsState(settings)
+    return settings
+  } catch (error) {
+    showToast(error.message)
+    await loadSettings()
+  }
+}
+
+function queueLiquidGlassOpacity(value) {
+  liquidGlassQueue.next = value
+  if (liquidGlassQueue.running) return
+  liquidGlassQueue.running = true
+  void (async () => {
+    let latestSettings
+    while (liquidGlassQueue.next !== null) {
+      const next = liquidGlassQueue.next
+      liquidGlassQueue.next = null
+      latestSettings = await updateSettings({ liquidGlassOpacity: next }, { applyResponse: false })
+    }
+    if (latestSettings) applySettingsState(latestSettings)
+    liquidGlassQueue.running = false
+  })()
+}
+
+function setSimulatorSound(nextLevel) {
+  const previousLevel = currentSoundLevel
+  currentSoundLevel = nextLevel
+  const difference = nextLevel - previousLevel
+  const generation = streamGeneration
+  const payload = difference > 0
+    ? { button: "volume-up", page: 12, usage: 233 }
+    : { button: "volume-down", page: 12, usage: 234 }
+  for (let index = 0; index < Math.abs(difference); index += 1) {
+    setTimeout(() => {
+      if (generation === streamGeneration) sendInput(0x04, payload)
+    }, index * 24)
+  }
+  void updateSettings({ sound: nextLevel })
 }
 
 function pointerPosition(clientX, clientY) {
@@ -550,8 +753,62 @@ function releasePressedKeys() {
   pressedKeys.clear()
 }
 
-elements.deviceSelect.addEventListener("change", () => void selectDevice(elements.deviceSelect.value))
-elements.refreshButton.addEventListener("click", () => void refreshState({ reconnect: true }))
+elements.deviceMenuButton.addEventListener("click", () => toggleSurface("devices"))
+elements.settingsButton.addEventListener("click", () => toggleSurface("settings"))
+elements.moreButton.addEventListener("click", () => toggleSurface("more"))
+for (const button of document.querySelectorAll("[data-close-panel]")) {
+  button.addEventListener("click", () => setOpenSurface(null))
+}
+elements.deviceSearch.addEventListener("input", () => populateDevices(currentState))
+elements.deviceList.addEventListener("click", (event) => {
+  const row = event.target.closest("[data-udid]")
+  if (!row) return
+  setOpenSurface(null)
+  void selectDevice(row.dataset.udid)
+})
+elements.keyboardButton.addEventListener("click", () => {
+  elements.screen.classList.remove("is-pointer-focused")
+  elements.screen.focus({ preventScroll: true })
+})
+elements.appearanceSelect.addEventListener("change", () => void updateSettings({ appearance: elements.appearanceSelect.value }))
+elements.liquidGlassSlider.addEventListener("input", () => {
+  const opacity = Number(elements.liquidGlassSlider.value)
+  elements.liquidGlassSlider.setAttribute("aria-valuetext", `${Math.round(opacity * 100)}% tint`)
+  queueLiquidGlassOpacity(opacity)
+})
+elements.colorFilterSelect.addEventListener("change", () => void updateSettings({ colorFilter: elements.colorFilterSelect.value }))
+elements.textSizeSlider.addEventListener("input", () => {
+  elements.textSizeLabel.textContent = CONTENT_SIZES[Number(elements.textSizeSlider.value)]?.[1] || "Large"
+})
+elements.textSizeSlider.addEventListener("change", () => {
+  const contentSize = CONTENT_SIZES[Number(elements.textSizeSlider.value)]?.[0]
+  if (contentSize) void updateSettings({ contentSize })
+})
+elements.reduceMotionToggle.addEventListener("change", () => void updateSettings({ reduceMotion: elements.reduceMotionToggle.checked }))
+elements.contrastToggle.addEventListener("change", () => void updateSettings({ increaseContrast: elements.contrastToggle.checked }))
+elements.showBordersToggle.addEventListener("change", () => void updateSettings({ showBorders: elements.showBordersToggle.checked }))
+elements.reduceTransparencyToggle.addEventListener("change", () => void updateSettings({ reduceTransparency: elements.reduceTransparencyToggle.checked }))
+elements.voiceOverToggle.addEventListener("change", () => void updateSettings({ voiceOver: elements.voiceOverToggle.checked }))
+elements.locationSelect.addEventListener("change", () => void updateSettings({ location: elements.locationSelect.value }))
+elements.soundSlider.addEventListener("input", () => {
+  elements.soundLabel.textContent = `${Math.round(Number(elements.soundSlider.value) / 16 * 100)}%`
+})
+elements.soundSlider.addEventListener("change", () => setSimulatorSound(Number(elements.soundSlider.value)))
+document.addEventListener("click", (event) => {
+  if (openSurface !== "info" && openSurface !== "more") return
+  const [surface, trigger] = SURFACES[openSurface]
+  if (!surface.contains(event.target) && !trigger.contains(event.target)) setOpenSurface(null)
+})
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && openSurface) {
+    event.preventDefault()
+    setOpenSurface(null)
+  }
+}, true)
+elements.refreshButton.addEventListener("click", () => {
+  setOpenSurface(null)
+  void refreshState({ reconnect: true })
+})
 elements.startButton.addEventListener("click", () => currentState.selected && void selectDevice(currentState.selected.udid))
 elements.homeButton.addEventListener("click", () => sendInput(0x04, { button: "home" }))
 elements.lockButton.addEventListener("click", () => sendInput(0x04, { button: "lock" }))
@@ -578,6 +835,7 @@ elements.screenshotButton.addEventListener("click", async () => {
 })
 elements.shutdownButton.addEventListener("click", async () => {
   if (!currentState.selected) return
+  setOpenSurface(null)
   try {
     renderState(await api("api/device/shutdown", { method: "POST", body: { udid: currentState.selected.udid } }))
   } catch (error) {
@@ -652,14 +910,6 @@ window.addEventListener("blur", () => {
   releasePressedKeys()
   if (activePointer) endPointer(activePointer.kind, activePointer.id)
 })
-
-setInterval(() => {
-  const now = performance.now()
-  const seconds = (now - frameCounterStartedAt) / 1000
-  elements.frameRate.textContent = frameCounter > 0 ? `${Math.round(frameCounter / Math.max(seconds, 0.1))} fps` : "Waiting for frames"
-  frameCounter = 0
-  frameCounterStartedAt = now
-}, 1000)
 
 setInterval(() => void refreshState(), 5000)
 void refreshState({ reconnect: true })

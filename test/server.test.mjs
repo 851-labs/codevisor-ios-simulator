@@ -4,6 +4,7 @@ import {
   decodeContext,
   hasCodevisorPaneContext,
   inputTransportForRuntime,
+  isLiquidGlassOpacity,
   panePreferenceKey,
   parseDeviceList,
   runtimeLabel,
@@ -75,4 +76,13 @@ test("uses raw DTUHID input for iOS 27 and legacy HID for older runtimes", () =>
   assert.equal(inputTransportForRuntime("iOS 27.0"), "dtuhid")
   assert.equal(inputTransportForRuntime("iOS 26.4"), "legacy-hid")
   assert.equal(inputTransportForRuntime("watchOS 27.0"), "legacy-hid")
+})
+
+test("accepts Device Hub's continuous Liquid Glass opacity range", () => {
+  assert.equal(isLiquidGlassOpacity(0), true)
+  assert.equal(isLiquidGlassOpacity(0.5165625214576721), true)
+  assert.equal(isLiquidGlassOpacity(1), true)
+  assert.equal(isLiquidGlassOpacity(-0.01), false)
+  assert.equal(isLiquidGlassOpacity(1.01), false)
+  assert.equal(isLiquidGlassOpacity(Number.NaN), false)
 })
