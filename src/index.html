@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+    <title>iOS Simulator</title>
+    <link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="toolbar">
+        <div class="device-picker">
+          <span class="device-mark" aria-hidden="true"></span>
+          <label class="sr-only" for="device-select">Simulator</label>
+          <select id="device-select" aria-label="Simulator"></select>
+          <span id="runtime-label" class="runtime-label"></span>
+        </div>
+
+        <div class="connection" aria-live="polite">
+          <span id="connection-dot" class="connection-dot"></span>
+          <span id="connection-label">Finding simulator</span>
+        </div>
+
+        <div class="toolbar-actions">
+          <button id="refresh-button" class="icon-button" type="button" title="Refresh simulators" aria-label="Refresh simulators">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.7 6.5A6.3 6.3 0 1 0 16 13m-.3-6.5V2.8m0 3.7H12"/></svg>
+          </button>
+          <span class="toolbar-separator"></span>
+          <button id="rotate-left-button" class="icon-button" type="button" title="Rotate left" aria-label="Rotate left">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.1 4.4 3.8 6.8l3.3 2.4M4 6.9a6.3 6.3 0 1 1 .8 5.5"/></svg>
+          </button>
+          <button id="home-button" class="icon-button" type="button" title="Home" aria-label="Home">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m3.5 9 6.5-5.5L16.5 9v7.2h-5v-4h-3v4h-5Z"/></svg>
+          </button>
+          <button id="lock-button" class="icon-button" type="button" title="Lock" aria-label="Lock">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4.5" y="8" width="11" height="8.5" rx="2"/><path d="M7 8V6.2a3 3 0 0 1 6 0V8"/></svg>
+          </button>
+          <button id="screenshot-button" class="icon-button" type="button" title="Save screenshot" aria-label="Save screenshot">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.2 5.5 7.4 3.8h5.2l1.2 1.7h2A1.7 1.7 0 0 1 17.5 7v7.3a1.7 1.7 0 0 1-1.7 1.7H4.2a1.7 1.7 0 0 1-1.7-1.7V7a1.7 1.7 0 0 1 1.7-1.5Z"/><circle cx="10" cy="10.7" r="3.1"/></svg>
+          </button>
+          <button id="shutdown-button" class="icon-button" type="button" title="Shut down simulator" aria-label="Shut down simulator">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v7M5.2 5.3a6.2 6.2 0 1 0 9.6 0"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="stage" aria-label="Simulator preview">
+        <div id="device-shell" class="device-shell is-idle">
+          <div id="screen" class="screen" tabindex="0" role="application" aria-label="Interactive iOS Simulator screen">
+            <canvas id="stream-canvas"></canvas>
+            <div id="empty-state" class="empty-state">
+              <div class="empty-glyph" aria-hidden="true">
+                <span></span>
+              </div>
+              <p id="empty-title" class="empty-title">Connecting to Simulator</p>
+              <p id="empty-detail" class="empty-detail">The first frame can take a few seconds.</p>
+              <button id="start-button" class="primary-button" type="button" hidden>Start simulator</button>
+            </div>
+            <div id="focus-ring" class="focus-ring" aria-hidden="true"></div>
+          </div>
+        </div>
+
+        <div class="stage-footer">
+          <span id="screen-size">—</span>
+          <span class="footer-dot">·</span>
+          <span id="frame-rate">Waiting for frames</span>
+          <span class="footer-hint">Click the screen to send keyboard input</span>
+        </div>
+      </section>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+[submodule ".repos/simmer"]
+	path = .repos/simmer
+	url = https://github.com/joshdholtz/simmer
+[submodule ".repos/serve-sim"]
+	path = .repos/serve-sim
+	url = https://github.com/EvanBacon/serve-sim
+[submodule ".repos/tapflow"]
+	path = .repos/tapflow
+	url = https://github.com/jo-duchan/tapflow.git
+[submodule ".repos/simcast"]
+	path = .repos/simcast
+	url = https://github.com/simcast-dev/simcast.git
+[submodule ".repos/SimStream"]
+	path = .repos/SimStream
+	url = https://github.com/EliotAndres/SimStream.git
+[submodule ".repos/AXe"]
+	path = .repos/AXe
+	url = https://github.com/cameroncooke/AXe.git
+[submodule ".repos/idb"]
+	path = .repos/idb
+	url = https://github.com/cameroncooke/idb.git

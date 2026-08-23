@@ -1,0 +1,22 @@
+{
+  "protocolVersion": 1,
+  "id": "851-labs.ios-simulator",
+  "name": "iOS Simulator",
+  "description": "View and control an iOS Simulator from any Codevisor client.",
+  "version": "0.4.1",
+  "iconPath": "/assets/icon.svg",
+  "panes": [
+    {
+      "type": "simulator",
+      "title": "iOS Simulator",
+      "path": "/panes/simulator/"
+    }
+  ],
+  "install": {
+    "command": "bash scripts/install.sh"
+  },
+  "run": {
+    "command": "node server.mjs"
+  },
+  "healthPath": "/health"
+}
