@@ -7,7 +7,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { promisify } from "node:util"
 import { WebSocketServer } from "ws"
-import { simMiddleware } from "./.repos/serve-sim/packages/serve-sim/dist/middleware.js"
+import { simMiddleware } from "./vendor/serve-sim/middleware.js"
 import { LiveTouchController, RawDTUHIDTransport } from "./src/dtuhid.mjs"
 
 const execFileAsync = promisify(execFile)
@@ -17,7 +17,7 @@ const UDID_PATTERN = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{
 const DATA_DIR = process.env.CODEVISOR_PLUGIN_DATA_DIR || join(tmpdir(), "codevisor-ios-simulator-dev")
 const PREFERENCES_PATH = join(DATA_DIR, "pane-preferences.json")
 const DTUHID_BROKER_PATH = join(ROOT, "bin", "codevisor-dtuhid-broker")
-const AX_SETTINGS_PATH = join(ROOT, ".repos", "serve-sim", "packages", "serve-sim", "dist", "simax", "serve-sim-ax-settings")
+const AX_SETTINGS_PATH = join(ROOT, "vendor", "serve-sim", "simax", "serve-sim-ax-settings")
 const STATIC_FILES = new Map([
   [`${PANE_BASE}/`, ["src/index.html", "text/html; charset=utf-8"]],
   [`${PANE_BASE}/app.js`, ["src/app.js", "text/javascript; charset=utf-8"]],

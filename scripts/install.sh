@@ -11,12 +11,24 @@ fi
 
 bun install --frozen-lockfile
 
-git submodule update --init .repos/serve-sim
-(
-  cd .repos/serve-sim
-  bun install --frozen-lockfile
-  bun run packages/serve-sim/build.ts
+required_runtime_files=(
+  "vendor/serve-sim/middleware.js"
+  "vendor/serve-sim/native/serve-sim-native.node"
+  "vendor/serve-sim/simax/serve-sim-ax-settings"
 )
+for runtime_file in "${required_runtime_files[@]}"; do
+  if [[ ! -f "$runtime_file" ]]; then
+    echo "The plugin package is incomplete: $runtime_file is missing." >&2
+    exit 1
+  fi
+done
+
+if [[ "$(uname -m)" != "arm64" ]]; then
+  echo "The iOS Simulator plugin currently supports Apple Silicon Macs only." >&2
+  exit 1
+fi
+
+chmod +x vendor/serve-sim/simax/serve-sim-ax-settings
 
 if ! command -v brew >/dev/null 2>&1; then
   echo "Homebrew is required to install AXe's simulator frameworks." >&2

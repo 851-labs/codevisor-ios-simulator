@@ -3,7 +3,7 @@
   "id": "851-labs.ios-simulator",
   "name": "iOS Simulator",
   "description": "View and control an iOS Simulator from any Codevisor client.",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "iconPath": "/assets/icon.svg",
   "panes": [
     {

@@ -1,6 +1,6 @@
 {
   "name": "@851-labs/codevisor-ios-simulator",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "private": true,
   "type": "module",
   "description": "Control an iOS Simulator from a Codevisor pane.",
@@ -12,7 +12,6 @@
     "ws": "^8.21.0"
   },
   "scripts": {
-    "build:serve-sim": "cd .repos/serve-sim && bun run packages/serve-sim/build.ts",
     "build:dtuhid": "bash scripts/build-dtuhid-broker.sh",
     "install:plugin": "bash scripts/install.sh",
     "start": "node server.mjs",
