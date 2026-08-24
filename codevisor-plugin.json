@@ -1,9 +1,9 @@
 {
-  "protocolVersion": 1,
+  "protocolVersion": 2,
   "id": "851-labs.ios-simulator",
   "name": "iOS Simulator",
   "description": "View and control an iOS Simulator from any Codevisor client.",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "iconPath": "/assets/icon.svg",
   "panes": [
     {
@@ -12,11 +12,44 @@
       "path": "/panes/simulator/"
     }
   ],
-  "install": {
-    "command": "bash scripts/install.sh"
-  },
+  "platforms": ["darwin"],
+  "setup": [
+    {
+      "argv": ["bash", "scripts/install.sh"],
+      "platforms": ["darwin"]
+    }
+  ],
   "run": {
-    "command": "node server.mjs"
+    "argv": ["node", "server.mjs"]
+  },
+  "requirements": {
+    "executables": [
+      {
+        "name": "node",
+        "installHint": "Install Node.js 20 or newer.",
+        "helpUrl": "https://nodejs.org/en/download"
+      },
+      {
+        "name": "bun",
+        "installHint": "Install Bun to prepare the plugin dependencies.",
+        "helpUrl": "https://bun.sh/docs/installation"
+      },
+      {
+        "name": "brew",
+        "installHint": "Install Homebrew to provide the AXe simulator frameworks.",
+        "helpUrl": "https://brew.sh/"
+      },
+      {
+        "name": "xcrun",
+        "installHint": "Install the Xcode Command Line Tools.",
+        "helpUrl": "https://developer.apple.com/xcode/resources/"
+      },
+      {
+        "name": "codesign",
+        "installHint": "Install the Xcode Command Line Tools.",
+        "helpUrl": "https://developer.apple.com/xcode/resources/"
+      }
+    ]
   },
   "healthPath": "/health"
 }
