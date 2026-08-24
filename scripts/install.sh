@@ -4,12 +4,12 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
-if ! command -v bun >/dev/null 2>&1; then
-  echo "Bun is required to install the iOS Simulator plugin." >&2
+if ! command -v npm >/dev/null 2>&1; then
+  echo "npm is required to install the iOS Simulator plugin." >&2
   exit 1
 fi
 
-bun install --frozen-lockfile
+npm ci
 
 required_runtime_files=(
   "vendor/serve-sim/middleware.js"

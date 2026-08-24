@@ -3,7 +3,7 @@
   "id": "851-labs.ios-simulator",
   "name": "iOS Simulator",
   "description": "View and control an iOS Simulator from any Codevisor client.",
-  "version": "0.6.7",
+  "version": "0.6.8",
   "iconPath": "/assets/icon.svg",
   "panes": [
     {
@@ -30,9 +30,9 @@
         "helpUrl": "https://nodejs.org/en/download"
       },
       {
-        "name": "bun",
-        "installHint": "Install Bun to prepare the plugin dependencies.",
-        "helpUrl": "https://bun.sh/docs/installation"
+        "name": "npm",
+        "installHint": "Install npm to prepare the plugin dependencies.",
+        "helpUrl": "https://docs.npmjs.com/downloading-and-installing-node-js-and-npm"
       },
       {
         "name": "brew",

@@ -8,7 +8,7 @@ The plugin includes the small portion of `serve-sim` it needs for SimulatorKit f
 
 ```sh
 bash scripts/install.sh
-bun test
+npm test
 codevisor plugin link "$PWD"
 ```
 
@@ -16,4 +16,4 @@ The `.repos` submodules are optional references for development. Installation an
 
 Open **iOS Simulator** from Codevisor's New Tab page. Selecting a shut-down device boots it automatically. Click inside the simulated screen to send pointer and keyboard input.
 
-Requirements: macOS on Apple Silicon, Xcode Command Line Tools, Node.js 20 or newer, Bun, Homebrew, and an installed iOS Simulator runtime. The install script installs AXe's simulator frameworks when needed and builds the native DTUHID broker locally. Cursor-free input does not require macOS Accessibility permission.
+Requirements: macOS on Apple Silicon, Xcode Command Line Tools, Node.js 20 or newer with npm, Homebrew, and an installed iOS Simulator runtime. The install script installs AXe's simulator frameworks when needed and builds the native DTUHID broker locally. Cursor-free input does not require macOS Accessibility permission.

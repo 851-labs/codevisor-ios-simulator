@@ -1,6 +1,6 @@
 {
   "name": "@851-labs/codevisor-ios-simulator",
-  "version": "0.6.7",
+  "version": "0.6.8",
   "private": true,
   "type": "module",
   "description": "Control an iOS Simulator from a Codevisor pane.",
